@@ -15,14 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Gitleaks
-        run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz -o gitleaks.tgz
-          tar -xzf gitleaks.tgz gitleaks
-          ./gitleaks version
-      - name: Run Gitleaks (create SARIF)
-        run: |
-          ./gitleaks detect --source . --report-format sarif --report-path gitleaks.sarif || true
+      - name: Run Gitleaks (SARIF)
+        uses: addnab/docker-run-action@v3
+        with:
+          image: zricethezav/gitleaks:latest
+          options: -v ${{ github.workspace }}:/repo
+          run: gitleaks detect --source=/repo --report-format sarif --report-path /repo/gitleaks.sarif || true
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
         with:
