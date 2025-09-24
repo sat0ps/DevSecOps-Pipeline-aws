@@ -59,8 +59,11 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ghcr.io/${{ github.repository_owner }}/devsecops-pipeline-aws:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
+
 
   image_scan:
     name: Image Scan (Trivy)
