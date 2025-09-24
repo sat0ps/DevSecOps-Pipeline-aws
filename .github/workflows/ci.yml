@@ -49,7 +49,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/devsecopspipeline.aws
+          images: ghcr.io/${{ github.repository_owner }}/devsecops-pipeline-aws
           tags: |
             type=ref,event=branch
             type=sha,format=short,prefix=sha-
@@ -60,7 +60,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  image_scan:
   image_scan:
     name: Image Scan (Trivy)
     runs-on: ubuntu-latest
@@ -95,6 +94,7 @@ jobs:
       - uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: checkov.sarif
+
   sbom:
     name: SBOM (Syft) + Grype
     runs-on: ubuntu-latest
@@ -105,13 +105,16 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
           curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
       - name: Generate SBOM
-        run: syft ghcr.io/${{ github.repository_owner }}/devsecopspipeline.aws:${{ github.sha }} -o spdx-json > sbom.spdx.json
+        run: syft ghcr.io/${{ github.repository_owner }}/devsecops-pipeline-aws:${{ github.sha }} -o spdx-json > sbom.spdx.json
       - name: Grype scan
         run: grype sbom:sbom.spdx.json -o sarif > grype.sarif || true
       - uses: actions/upload-artifact@v4
-        with: { name: sbom, path: sbom.spdx.json }
+        with:
+          name: sbom
+          path: sbom.spdx.json
       - uses: github/codeql-action/upload-sarif@v3
-        with: { sarif_file: grype.sarif }
+        with:
+          sarif_file: grype.sarif
 
   deploy_dev:
     name: Deploy to dev (kubectl)
