@@ -15,11 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: gitleaks/gitleaks-action@v2
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
         with:
-          args: detect --source=. --report-format sarif --report-path gitleaks.sarif
-      - uses: github/codeql-action/upload-sarif@v3
-        with: { sarif_file: gitleaks.sarif }
+          args: detect --source=. --report-format sarif --report-path ${{ runner.temp }}/gitleaks.sarif
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ runner.temp }}/gitleaks.sarif
 
   codeql_sast:
     name: SAST (CodeQL)
@@ -58,16 +61,23 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   image_scan:
+  image_scan:
     name: Image Scan (Trivy)
     runs-on: ubuntu-latest
     needs: [build_push]
     steps:
-      - uses: aquasecurity/trivy-action@0.24.0
-      - uses: github/codeql-action/upload-sarif@v3
-        with: { sarif_file: trivy-image.sarif }
-      - name: Trivy image
-        run: |
-          trivy image ghcr.io/${{ github.repository_owner }}/devsecopspipeline.aws:${{ github.sha }} --format sarif --output trivy-image.sarif --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM || true
+      - name: Trivy image (generate SARIF)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/devsecops-pipeline-aws:${{ github.sha }}
+          format: sarif
+          output: trivy-image.sarif
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
 
   iac_scan:
     name: IaC (Checkov)
