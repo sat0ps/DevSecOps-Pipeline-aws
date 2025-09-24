@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: satops-demo
+  labels: { app: satops-demo }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: satops-demo } }
+  template:
+    metadata: { labels: { app: satops-demo } }
+    spec:
+      containers:
+        - name: web
+          # Use a stable, lowercase image path independent of repo name
+          image: ghcr.io/sat0ps/devsecopspipeline.aws:sha-SHORT
+          ports: [ { containerPort: 80 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: satops-demo }
+spec:
+  type: ClusterIP
+  selector: { app: satops-demo }
+  ports: [ { port: 80, targetPort: 80 } ]
