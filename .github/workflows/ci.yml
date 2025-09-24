@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run Gitleaks (SARIF)
+      - name: Run Gitleaks (SARIF via Docker)
         uses: addnab/docker-run-action@v3
         with:
           image: zricethezav/gitleaks:latest
@@ -55,7 +55,8 @@ jobs:
           tags: |
             type=ref,event=branch
             type=sha,format=short,prefix=sha-
-      - uses: docker/build-push-action@v6
+      - name: Build & push (incl. full SHA tag)
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -63,7 +64,6 @@ jobs:
             ${{ steps.meta.outputs.tags }}
             ghcr.io/${{ github.repository_owner }}/devsecops-pipeline-aws:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
-
 
   image_scan:
     name: Image Scan (Trivy)
@@ -121,22 +121,22 @@ jobs:
         with:
           sarif_file: grype.sarif
 
-  deploy_dev:
-    name: Deploy to dev (kubectl)
-    if: github.ref == 'refs/heads/main'
+  deploy_ephemeral:
+    name: Deploy on ephemeral KinD
     needs: [build_push, image_scan]
     runs-on: ubuntu-latest
-    environment:
-      name: dev
-      url: http://example.local/
     steps:
       - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1
       - uses: azure/setup-kubectl@v4
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > $HOME/.kube/config
       - name: Update image tag in manifest
         run: sed -i "s/sha-SHORT/sha-${GITHUB_SHA:0:7}/g" k8s/deploy.yaml
-      - name: Apply manifests
-        run: kubectl apply -f k8s/
+      - name: Apply & wait
+        run: |
+          kubectl apply -f k8s/
+          kubectl rollout status deploy/satops-demo --timeout=90s
+      - name: Smoke test
+        run: |
+          kubectl port-forward deploy/satops-demo 8080:80 >/dev/null 2>&1 &
+          sleep 5
+          curl -I http://127.0.0.1:8080 || exit 1
